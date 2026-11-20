@@ -42,38 +42,6 @@ const OrderSuccessPage = () => {
     };
   }, [dispatch, orderId]);
 
-  // ---------- add dataLayer for gtm tracking ----------
-  useEffect(() => {
-    const items = order?.items || order?.order_items || [];
-
-    if (order && items.length > 0) {
-      const transactionId = String(order?.payment?.transaction_id);
-      const totalValue = parseFloat(order.pricing?.total_amount) || 0;
-      const discount = order.pricing?.discount || 0;
-
-      // console.log(discount)
-
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({
-        event: "purchase",
-        ecommerce: {
-          transaction_id: transactionId,
-          currency: "INR",
-          order_value: totalValue,
-          order_id: orderId,
-          coupan_discount: discount,
-          items: items.map((item) => ({
-            item_id: String(item.product_id || item.product.id),
-            name: String(item.name || item.product.name),
-            price: parseFloat(item.price) || 0,
-            quantity: parseInt(item.quantity),
-          })),
-        },
-      });
-
-      console.log("trackTransaction datalayer", window.dataLayer);
-    }
-  }, [order]);
 
   // ========================================
   // BACKEND INVOICE
@@ -259,7 +227,7 @@ const OrderSuccessPage = () => {
   const remainingCod = order?.pricing?.remaining_cod_amount;
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
-      {/* ✅ Loader overlay – सिर्फ tab dikhe jab loading/upload चल रहा हो */}
+      {/*  Loader overlay – सिर्फ tab dikhe jab loading/upload चल रहा हो */}
       {(loading || invoiceLoading) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-xs">
           <Loader
@@ -339,23 +307,10 @@ const OrderSuccessPage = () => {
               <h3 className="text-xs font-semibold text-gray-400 uppercase">
                 Delivery Address :
               </h3>
-              <p className="font-sm text-gray-800">
-                {order.address.snapshot.name},
-              </p>
-              <p className="font-sm text-gray-800">
-                {order.address.snapshot.email},
-              </p>
-              <p className="text-sm text-gray-600">
-                {order.address.snapshot.address},
-              </p>
-              <p className="text-sm text-gray-600">
-                {order.address.snapshot.city}
-                {"  "}, {order.address.snapshot.state} -{" "}
-                {order.address.snapshot.pincode},
-              </p>
-              <p className="text-sm text-gray-500">
-                Mobile: {order.address.snapshot.mobile}
-              </p>
+              <span className="text-sm text-gray-600">
+                {order.address.snapshot.name},{" "}{order.address.snapshot.email},{" "}{order.address.snapshot.address},{" "}{order.address.snapshot.city},{" "}{order.address.snapshot.state} -{" "}{" "}{order.address.snapshot.pincode},{" "}Mobile: {order.address.snapshot.mobile},
+              </span>
+             
             </div>
           )}
 

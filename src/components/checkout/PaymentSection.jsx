@@ -124,7 +124,7 @@ const StripePaymentForm = ({ onSuccess, onCancel, onReady, isReady }) => {
             console.error("Stripe PaymentElement load error:", event);
             onReady?.(false);
             setErrorMessage(
-              "Unable to load the payment form. Please try again."
+              "Unable to load the payment form. Please try again.",
             );
           }}
         />
@@ -171,7 +171,7 @@ const StripePaymentForm = ({ onSuccess, onCancel, onReady, isReady }) => {
 // PAYMENT SECTION
 // ========================================
 
-const PaymentSection = () => {
+const PaymentSection = ({ isLocked = false }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -200,8 +200,14 @@ const PaymentSection = () => {
     (state) => state.address,
   );
 
-  const { deliveryCharge, codCharge, isDeliveryLoading, isCodLoading } =
-    useSelector((state) => state.extraCheckoutCharge);
+  const {
+    deliveryCharge,
+    codCharge,
+    tax,
+    netAmountBeforeDiscount,
+    isDeliveryLoading,
+    isCodLoading,
+  } = useSelector((state) => state.extraCheckoutCharge);
 
   const { selectedPaymentMethod, loading: globalPaymentLoading } = useSelector(
     (state) => state.payment,
@@ -535,7 +541,7 @@ const PaymentSection = () => {
       } catch (err) {
         console.error("Stripe initialization error:", err);
 
-        toast.error("Unable to start payment. Please try again.");
+        toast.error(err || "Unable to start payment. Please try again.");
       } finally {
         setStripeLoading(false);
       }
@@ -653,7 +659,7 @@ const PaymentSection = () => {
     } catch (err) {
       console.error("Stripe verification error:", err);
 
-      toast.error("Payment verification failed. Please try again.");
+      toast.error(err || "Payment verification failed. Please try again.");
     } finally {
       setStripeLoading(false);
     }
@@ -723,7 +729,39 @@ const PaymentSection = () => {
         </div>
       )}
 
-      <div className="w-full bg-white border border-gray-100 rounded-xl p-4 sm:p-5 shadow-sm space-y-5 text-left">
+      <div
+        className={`w-full bg-white border rounded-xl p-4 sm:p-5 shadow-sm space-y-5 text-left relative ${isLocked ? "border-gray-200 opacity-60" : "border-gray-100"}`}
+      >
+        {/* Locked overlay */}
+        {isLocked && (
+          <div className="absolute inset-0 z-10 bg-white/70 backdrop-blur-[1px] rounded-xl flex flex-col items-center justify-center gap-2 cursor-not-allowed">
+            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5 text-gray-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <p className="text-xs font-bold text-gray-500">
+              {!isLoggedIn
+                ? "Please login first to continue"
+                : "Please select a delivery address"}
+            </p>
+            <p className="text-[10px] text-gray-400">
+              {!isLoggedIn
+                ? "Step 1 → Login required"
+                : "Step 2 → Address required"}
+            </p>
+          </div>
+        )}
         {/* ========================================
             HEADER
         ======================================== */}
@@ -735,7 +773,7 @@ const PaymentSection = () => {
 
           <div>
             <h3 className="text-sm font-extrabold text-gray-900 tracking-tight">
-              Payment Method
+              Step 3: Payment Method
             </h3>
 
             <p className="text-xs text-gray-500 font-medium">
@@ -834,41 +872,65 @@ const PaymentSection = () => {
         ======================================== */}
 
         <div className="p-4 bg-gray-50/50 rounded-xl border border-gray-200/60 text-xs space-y-2.5">
-          {/* SUBTOTAL */}
-
+          {/* net amount */}
           <div className="flex justify-between items-center text-gray-600 px-1 sm:px-4">
-            <span>Subtotal</span>
+            <span>Net amount</span>
             <span className="font-semibold text-gray-800">
-              $
-              {cartTotal.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              ${netAmountBeforeDiscount}
             </span>
           </div>
 
-          {/* COUPON */}
+          {/* State Tax */}
+          {tax?.total_amount > 0 && (
+  <>
+    <div className="flex justify-between items-center text-gray-600 px-1 sm:px-4">
+      <span className="text-gray-500">
+        State Tax{" "}
+        {tax?.jurisdiction?.state_code &&
+          `(${tax.jurisdiction.state_code} • ${tax.state?.rate_percent}%)`}
+      </span>
+      <span className="text-gray-800">
+        $
+        {Number(tax?.state?.amount || 0).toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}
+      </span>
+    </div>
 
-          {appliedCoupon && couponDiscountAmount > 0 && (
-            <div className="flex justify-between items-center text-green-600 px-1 sm:px-4">
-              <span className="flex items-center gap-1">
-                Coupon Discount
-                {appliedCoupon?.code && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100">
-                    {appliedCoupon.code}
-                  </span>
-                )}
-              </span>
+    {tax?.local?.amount > 0 && (
+      <div className="flex justify-between items-center text-gray-600 px-1 sm:px-4">
+        <span className="text-gray-500">
+          Local Tax{" "}
+          {tax?.local?.rate_percent > 0 && `(${tax.local.rate_percent}%)`}
+        </span>
+        <span className="text-gray-800">
+          $
+          {Number(tax?.local?.amount || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+    )}
 
-              <span className="font-semibold">
-                - $
-                {couponDiscountAmount.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-            </div>
-          )}
+    <div className="flex justify-between items-center text-gray-600 px-1 sm:px-4">
+      <span className="text-gray-500">
+        Total Tax{" "}
+        
+      </span>
+      <span className="text-gray-800">
+        $
+        {Number(tax?.total_amount || 0).toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}
+      </span>
+    </div>
+  </>
+)}
+
+          
 
           {/* DELIVERY CHARGE */}
 
@@ -891,6 +953,8 @@ const PaymentSection = () => {
             </span>
           </div>
 
+
+
           {/* COD CHARGE */}
 
           {selectedPaymentMethod === "cod" && (
@@ -911,6 +975,29 @@ const PaymentSection = () => {
                       maximumFractionDigits: 2,
                     })}`
                   : "FREE"}
+              </span>
+            </div>
+          )}
+
+          {/* COUPON */}
+
+          {appliedCoupon && couponDiscountAmount > 0 && (
+            <div className="flex justify-between items-center text-green-600 px-1 sm:px-4">
+              <span className="flex items-center gap-1">
+                Coupon Discount
+                {appliedCoupon?.code && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100">
+                    {appliedCoupon.code}
+                  </span>
+                )}
+              </span>
+
+              <span className="font-semibold">
+                - $
+                {couponDiscountAmount.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
           )}
